@@ -6,27 +6,25 @@ int main()
 {
 	struct List lst = {};
 	list_ctor(&lst, 10);
+
 	list_add(&lst, 40);
 	list_add(&lst, 50);
-	list_add(&lst, 60);
 	list_add(&lst, 70);
 	list_add(&lst, 80);
 	list_add(&lst, 90);
 	list_add(&lst, 100);
-	list_add(&lst, 110);
-	list_add(&lst, 120);
-	list_add(&lst, 130);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
-	list_add(&lst, 666);
 
-	// list_del(&lst);
+	list_insert(&lst, 25, 3);
+	list_insert(&lst, 25, 5);
 
+	list_add(&lst, 75);
+	list_add(&lst, 75);
+
+	// list_linearize(&lst);
+
+// 	list_verifier(&lst);
+//
+	generate_code_for_graphic_dump(&lst);
 
 	return 0;
 }
