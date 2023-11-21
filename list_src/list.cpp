@@ -2,158 +2,186 @@
 #include <stdlib.h>
 
 #include "list.h"
+#include "list_helpers.h"
 
-enum Err_ID list_ctor(struct List *lst, size_t starter_capacity)
+struct List
 {
-	enum Err_ID function_error = ALL_GOOD; // TD: function - obvious
+	struct List_node *node;
+	int head;
+	int tail;
+	int current_free;
+	size_t capacity;
+};
 
-	lst->capacity = starter_capacity;
+FILE *log_file;
 
-	lst->node = (List_node *)calloc(lst->capacity, sizeof(List_node));
-	// TD: calloc ret value check
+#define SMART_CALLOC(allocation_ptr, type, amount_of_elems)\
+	allocation_ptr = (type *)calloc((amount_of_elems), sizeof(type));\
+	if(allocation_ptr == NULL)\
+	{\
+		fprintf(stderr, "Unable to allocate "#allocation_ptr"\n");\
+		error_code = NOT_ENOUGH_MEM;\
+		return error_code;\
+	}
 
-	lst->current_free = 0;
+#define SMART_FOPEN(file_ptr, file_name, open_mode)\
+	file_ptr = fopen(file_name, open_mode);\
+	if(file_ptr == NULL)\
+	{\
+		fprintf(stderr, "Unable to open "#file_name"\n");\
+		error_code = UNABLE_TO_OPEN_FILE;\
+		return error_code;\
+	}\
 
-	mark_list_nodes_as_free(lst->node, lst->capacity, 0);
+struct List_ctor_result list_ctor(size_t starter_capacity)
+{
+	struct List_ctor_result result =
+	{
+		.error_code = ALL_GOOD,
+		.lst = (struct List *)calloc(1, sizeof(struct List)),
+	};
 
-	size_t amount_of_free_elems = lst->capacity;
-	STACK_CTOR(&(lst->free), amount_of_free_elems);
-	push_all_elems_from_end(&(lst->free), lst->capacity - 1, 0);
+	result.lst->capacity = starter_capacity;
 
-	lst->head = FREE_ELEM_MARKER;
-	lst->tail = FREE_ELEM_MARKER;
+	result.lst->node =(List_node *)calloc(result.lst->capacity, sizeof(List_node));
+	if(result.lst->node == NULL)
+	{
+		fprintf(stderr, "Unable to allocate result.lst->node\n");
+		result.error_code = NOT_ENOUGH_MEM;
+		result.lst = NULL;
+		return result;
+	}
 
-	(lst->node)[0].next = lst->head;
-	(lst->node)[0].prev = lst->tail;
+	result.lst->current_free = 1;
+
+	mark_list_nodes_as_free(result.lst->node, result.lst->capacity, 0);
+
+	result.lst->head = FREE_ELEM_MARKER;
+	result.lst->tail = FREE_ELEM_MARKER;
+
+	(result.lst->node)[0].next = result.lst->head;
+	(result.lst->node)[0].prev = result.lst->tail;
 
 
-	lst->node[0].data = POISON;
+	result.lst->node[0].data = POISON;
 
-	lst->log_file = fopen("log_file", "w"); // TD: check ret value
+	log_file = fopen("log_file.txt", "w");
+	if(log_file == NULL)
+	{
+		fprintf(stderr, "Unable to open log_file.txt\n");
+		fprintf(stderr, "log_file is now stdout\n");
+		log_file = stdout;
+	}
 
-	list_dump(lst);
+	list_dump(result.lst, result.error_code, __func__);
 
-	return function_error;
+	return result;
 }
 
-enum Err_ID list_dump(const struct List *lst) // TD: 100 percents cases
+error_t list_dump(const struct List *lst, error_t error_code, const char *func_name)
 {
-	enum Err_ID function_error = ALL_GOOD;
+	error_t dump_function_error_code = ALL_GOOD;
 
-	FILE *log_file = lst->log_file;
-	fprintf(log_file, "ID:"); //  TD: LOG(...)
-	fprintf(log_file, "        data:");
-	fprintf(log_file, "        next:");
-	fprintf(log_file, "        prev:");
-	fprintf(log_file, "        free:\n");
+	DUMP_W_COND(func_name, "dump called from %s function:\n", func_name);
+
+	if(lst == NULL)
+	{
+		WRITE_IN_LOG("FATAL_ERROR: pointer to the list structure is NULL\n");
+		WRITE_IN_LOG("\tlst[%p]\n", lst);
+
+		return LST_NULL_PTR;
+	}
+
+	#define ERROR_CHECK(err_type)\
+		if(error_code & err_type)\
+		{\
+			WRITE_IN_LOG("-");\
+			WRITE_IN_LOG(#err_type);\
+			WRITE_IN_LOG("\n");\
+		}\
+
+	DUMP_W_COND(lst->node, "ID:");
+	DUMP_W_COND(lst->node->data, "        data:");
+	DUMP_W_COND(lst->node->next, "        next:");
+	DUMP_W_COND(lst->node->prev, "        prev:\n");
 	for(size_t ID = 0; ID < lst->capacity; ID++)
 	{
-		fprintf(log_file, "[%lu]%13.3lf", ID, (lst->node)[ID].data);
-		fprintf(log_file, "%13.d", (lst->node)[ID].next);
-		fprintf(log_file, "%13.d", (lst->node)[ID].prev);
-		if(ID <= lst->free.capacity)
-		{
-			fprintf(log_file, "%13.d\n", (lst->free.data)[ID]);
-		}
-		else
-		{
-			fprintf(log_file, "\n");
-		}
+		DUMP_W_COND(&ID &&  &((lst->node)[ID].data),"[%lu]%13.3lf", ID, (lst->node)[ID].data);
+		DUMP_W_COND(&((lst->node)[ID].next), "%13.d", (lst->node)[ID].next);
+		DUMP_W_COND(&((lst->node)[ID].prev), "%13.d", (lst->node)[ID].prev);
+
+		WRITE_IN_LOG("\n");
+
 	}
 
-	size_t current_free_ID = get_current_free_ID(lst);
+	// size_t current_free_ID = get_current_free_ID(lst);
 
-	fprintf(log_file, "current free: %d\n", (lst->free.data)[current_free_ID]);
-	fprintf(log_file, "head: %d\n", lst->head);
-	fprintf(log_file, "tail: %d\n", lst->tail);
-	fprintf(log_file, "capacity: %lu\n", lst->capacity);
-	fprintf(log_file, "free elems_left: %lu\n", lst->free.size);
+	DUMP_W_COND(&(lst->current_free), "current free: %d\n", lst->current_free);
+	DUMP_W_COND(&(lst->head), "head: %d\n", lst->head);
+	DUMP_W_COND(&(lst->tail), "tail: %d\n", lst->tail);
+	DUMP_W_COND(&(lst->capacity), "capacity: %lu\n", lst->capacity);
 
-	return function_error;
+	ERROR_CHECK(NOT_ENOUGH_MEM);
+	ERROR_CHECK(UNABLE_TO_OPEN_FILE);
+	ERROR_CHECK(DATA_POIZON_VALUE);
+	ERROR_CHECK(INVALID_INDEX);
+	ERROR_CHECK(LIST_LINK_ERROR);
+	ERROR_CHECK(LST_NULL_PTR);
+
+	#undef ERROR_CHECK
+
+	return dump_function_error_code;
 }
 
-enum Err_ID mark_list_nodes_as_free(struct List_node *node, size_t size, size_t start_ID)
+error_t list_add(struct List *lst, lst_elem_t value)
 {
-	enum Err_ID function_error = ALL_GOOD;
+	error_t error_code = ALL_GOOD;
 
-	for(size_t ID = start_ID; ID < size - 1; ID++)
+	if(lst->node[lst->current_free].next == 0)
 	{
-		node[ID].next = ID + 1;
-		node[ID].prev = FREE_ELEM_MARKER;
-	}
-
-	node[size - 1].next = 0;
-	node[size - 1].prev = FREE_ELEM_MARKER;
-
-	return function_error;
-}
-
-enum Err_ID push_all_elems_from_end(struct Stack *stk, size_t end_ID, size_t start_ID)
-{
-	enum Err_ID function_error = ALL_GOOD;
-	for(size_t ID = end_ID; ID > start_ID; ID--)
-	{
-		STACK_PUSH(stk, (elem_t)ID);
-	}
-
-	return function_error;
-}
-
-enum Err_ID list_add(struct List *lst, lst_elem_t value)
-{
-	enum Err_ID function_error = ALL_GOOD;
-
-	struct Stack_pop_result pop_result = STACK_POP(&(lst->free));
-	
-
-	if(pop_result.error_code == SIZE_ZERO)
-	{
-		fprintf(lst->log_file, "pop_result.error_code == %d so im reallocating\n",
-			pop_result.error_code);
+		WRITE_IN_LOG("lst->node[lst->current_free].next == %d so im reallocating\n",
+			lst->node[lst->current_free].next);
 
 		increase_list_capacity(lst);
 
 		list_realloc(lst);
-		pop_result.deleted_element = STACK_POP(&(lst->free)).deleted_element;
 	}
-	else
-	{
-		fprintf(lst->log_file, "pop_result.error_code == %d so im NOT reallocating\n",
-			pop_result.error_code);
-	}
+
+	int next_current_free = lst->node[lst->current_free].next;
 
 	if(lst->head == FREE_ELEM_MARKER)
 	{
 		lst->head = 1;
 		lst->tail = 1;
 
-		(lst->node)[pop_result.deleted_element].next = 0;
-		(lst->node)[pop_result.deleted_element].prev = 0;
+		(lst->node)[lst->current_free].next = 0;
+		(lst->node)[lst->current_free].prev = 0;
 
-		(lst->node)[pop_result.deleted_element].data = value;
+		(lst->node)[lst->current_free].data = value;
 	}
 	else
 	{
-		fprintf(lst->log_file, "pop_result.deleted_element == %d\n", pop_result.deleted_element);
-		(lst->node)[pop_result.deleted_element].data = value;
-		(lst->node)[pop_result.deleted_element].next = lst->head;
-		(lst->node)[lst->head].prev   = pop_result.deleted_element;
-		(lst->head) 			 = pop_result.deleted_element;
-		(lst->node)[lst->head].prev 	 = 0;
+		WRITE_IN_LOG("lst->current_free == %d\n", lst->current_free);
+		(lst->node)[lst->current_free].data = value;
+		(lst->node)[lst->current_free].next = lst->head;
+		(lst->node)[lst->head].prev 		= lst->current_free;
+		(lst->head) 			 			= lst->current_free;
+		(lst->node)[lst->head].prev 	 	= 0;
 	}
 
+	lst->current_free = next_current_free;
 	update_lists_fictitious_elem(lst);
 
-	list_dump(lst);
+	list_dump(lst, error_code, __func__);
 
-	return function_error;
+	return error_code;
 }
 
 struct List_del_result list_del(struct List *lst)
 {
 	struct List_del_result result =
 	{
-		.function_error = ALL_GOOD,
+		.error_code = ALL_GOOD,
 		.deleted_element = POISON,
 	};
 
@@ -165,14 +193,18 @@ struct List_del_result list_del(struct List *lst)
 	(lst->node)[lst->head].next = FREE_ELEM_MARKER;
 	(lst->node)[lst->head].prev = FREE_ELEM_MARKER;
 
-	STACK_PUSH(&(lst->free), lst->head);
+	int temp_old_current_free = lst->current_free;
+	lst->current_free = lst->head;
+	lst->node[lst->current_free].next = temp_old_current_free;
+
+	// STACK_PUSH(&(lst->free), lst->head);
 
 	lst->head = new_head;
 	(lst->node)[new_head].prev = 0;
 
 	update_lists_fictitious_elem(lst);
 
-	list_dump(lst);
+	list_dump(lst, result.error_code, __func__);
 
 	return result;
 }
@@ -181,126 +213,77 @@ struct List_insert_result list_insert(struct List *lst, lst_elem_t value, int da
 {
 	struct List_insert_result result =
 	{
-		.function_error = ALL_GOOD,
+		.error_code = ALL_GOOD,
 		.elem_data_ID = data_ID,
 	};
 
-	if( ((lst->node)[data_ID].next == FREE_ELEM_MARKER) ||
+	if(((lst->node)[data_ID].next == FREE_ELEM_MARKER) ||
 		(data_ID <= 0) ||
 		(!cmp_double((lst->node)[data_ID].data, POISON)) )
 	{
-		result.function_error = INVALID_INDEX;
+		result.error_code = INVALID_INDEX;
 		result.elem_data_ID = FREE_ELEM_MARKER;
 		return result;
 	}
 
-	struct Stack_pop_result pop_result = STACK_POP(&(lst->free));
-
-	if(pop_result.error_code == SIZE_ZERO)
+	if(lst->node[lst->current_free].next == 0)
 	{
-		fprintf(lst->log_file, "pop_result.error_code == %d so im reallocating\n",
-			pop_result.error_code);
+		WRITE_IN_LOG("lst->node[lst->current_free].next == %d so im reallocating\n",
+			lst->node[lst->current_free].next);
 
 		increase_list_capacity(lst);
 
 		list_realloc(lst);
-		pop_result.deleted_element = STACK_POP(&(lst->free)).deleted_element;
-	}
-	else
-	{
-		fprintf(lst->log_file, "pop_result.error_code == %d so im NOT reallocating\n",
-			pop_result.error_code);
 	}
 
+	int next_current_free = lst->node[lst->current_free].next;
 
-	(lst->node)[pop_result.deleted_element].data = value;
-	(lst->node)[pop_result.deleted_element].next = (lst->node)[data_ID].next;
-	(lst->node)[(lst->node)[data_ID].next].prev = pop_result.deleted_element;
-	(lst->node)[data_ID].next = pop_result.deleted_element;
-	(lst->node)[pop_result.deleted_element].prev = data_ID;
+	(lst->node)[lst->current_free].data = value;
+	(lst->node)[lst->current_free].next = (lst->node)[data_ID].next;
+	(lst->node)[(lst->node)[data_ID].next].prev = lst->current_free;
+	(lst->node)[data_ID].next = lst->current_free;
+	(lst->node)[lst->current_free].prev = data_ID;
+
+	lst->current_free = next_current_free;
 
 	update_lists_fictitious_elem(lst);
 
-	list_dump(lst);
+	list_dump(lst, result.error_code, __func__);
 
 	return result;
 }
 
-enum Err_ID list_realloc(List *lst)
+error_t list_verifier(struct List *lst)
 {
-	enum Err_ID function_error = ALL_GOOD;
-
-	size_t data_size = sizeof(struct List_node) * lst->capacity;
-
-	lst->node = (struct List_node *)realloc(lst->node, data_size);
-	if(lst->node == NULL)
-	{
-		return NOT_ENOUGH_MEM;
-	}
-
-	size_t new_allocated_areas_start_ID = (lst->capacity / 2) - 1; // TD: hardcode
-	int saved_last_elems_next = lst->node[new_allocated_areas_start_ID].next;
-	push_all_elems_from_end(&(lst->free), lst->capacity - 1, new_allocated_areas_start_ID);
-	lst->current_free = new_allocated_areas_start_ID;
-	mark_list_nodes_as_free(lst->node, lst->capacity, new_allocated_areas_start_ID);
-	lst->node[new_allocated_areas_start_ID].next = saved_last_elems_next;
-
-	return function_error;
-}
-
-enum Err_ID update_lists_fictitious_elem(struct List *lst)
-{
-	(lst->node)[0].next = lst->head;
-	(lst->node)[0].prev = lst->tail;
-
-	return ALL_GOOD;
-}
-
-enum Err_ID increase_list_capacity(struct List *lst)
-{
-	if(lst->capacity == 0)
-	{
-		lst->capacity += LIST_REALLOC_FROM_ZERO_CAPACITY;
-	}
-	else
-	{
-		lst->capacity *= LIST_REALLOC_COEFF;
-	}
-
-	return ALL_GOOD;
-}
-
-enum Err_ID list_verifier(struct List *lst)
-{
-	fprintf(lst->log_file, "LIST_VERIFIER_LOG:\n");
-	enum Err_ID function_error = ALL_GOOD;
+	WRITE_IN_LOG("LIST_VERIFIER_LOG:\n");
+	error_t error_code = ALL_GOOD;
 
 	int list_ID = lst->head;
 	while(list_ID != lst->tail)
 	{
 		if(lst->node[lst->node[list_ID].next].prev != list_ID)
 		{
-			fprintf(lst->log_file, "ERROR: lst->node[lst->node[%d].next].prev [%d] != %d\n",
+			WRITE_IN_LOG("ERROR: lst->node[lst->node[%d].next].prev [%d] != %d\n",
 				list_ID, lst->node[lst->node[list_ID].next].prev, list_ID);
-			function_error = LIST_LINK_ERROR;
+			error_code = LIST_LINK_ERROR;
 		}
 		else
 		{
-			fprintf(lst->log_file, "lst->node[lst->node[%d].next].prev [%d] == %d\n",
+			WRITE_IN_LOG("lst->node[lst->node[%d].next].prev [%d] == %d\n",
 				list_ID, lst->node[lst->node[list_ID].next].prev, list_ID);
 		}
 
 		list_ID = lst->node[list_ID].next;
 	}
 
-	return function_error;
+	return error_code;
 }
 
 struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(struct List *lst)
 {
 	struct Generate_code_for_graphic_dump_result result =
 	{
-		.function_error = ALL_GOOD,
+		.error_code = ALL_GOOD,
 		.graphic_dump_code_file_ptr = fopen("list_graphic_dump.dot", "w"),
 	};
 
@@ -308,7 +291,7 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 	{
 		fprintf(stderr, "Unable to open list_graphic_dump.dot\n");
 
-		result.function_error = UNABLE_TO_OPEN_FILE;
+		result.error_code = UNABLE_TO_OPEN_FILE;
 		return result;
 	}
 
@@ -330,18 +313,14 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 	"\tbelow_node [label = \"Don't look at me\", width = 3, style = invis];\n"
 	"}\n", 1 + lst->capacity / 10);
 
-	size_t current_free_ID = get_current_free_ID(lst);
-
 	//	print_list_manager
 	WRITE_TO_DUMP_FILE("{rank = min;\n"
 	"\tlist_manager [shape=Mrecord, fillcolor = \"#1E90FF\","
-	" label= \"{HEAD: %d| TAIL: %d| CUR_FREE: %d | CAPACITY: %lu | FREE_ELEMS_LEFT: %lu}\"];\n"
-	"}\n", lst->head, lst->tail, lst->current_free, lst->capacity, lst->free.size);
+	" label= \"{HEAD: %d| TAIL: %d| CUR_FREE: %d | CAPACITY: %lu}\"];\n"
+	"}\n", lst->head, lst->tail, lst->current_free, lst->capacity);
 
 	//	printf_nodes
 	WRITE_TO_DUMP_FILE("{rank = same;\n");
-
-	// create_node(name, color, label);
 
 	//	print_dummy
 	WRITE_TO_DUMP_FILE("\tdummy [shape = Mrecord,label = "
@@ -366,14 +345,15 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 				lst->node[lst->tail].prev);
 	}
 
-	if(lst->head >= 0)
+	if((lst->head >= 0) && (lst->node[lst->head].next != 0))
 	{
 		//	print_regular_nodes
 		for(int elem_ID = lst->node[lst->head].next;
 				elem_ID != lst->tail; elem_ID = lst->node[elem_ID].next)
 		{
 			WRITE_TO_DUMP_FILE(
-			"\tnode_%d [shape = Mrecord, label = \"{ID: %d | val: %.2lf |{next: %d | prev: %d}}\" ];\n",
+			"\tnode_%d [shape = Mrecord, label = \"{ID: %d | val: %.2lf |"
+			"{next: %d | prev: %d}}\" ];\n",
 				elem_ID, elem_ID, lst->node[elem_ID].data,
 					lst->node[elem_ID].next, lst->node[elem_ID].prev);
 		}
@@ -381,15 +361,14 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 
 	//	print_free_nodes
 	{	//	ограничение области видимости elem_ID
-		int elem_ID = -1;
-		for(int ID = (int)lst->free.size - 1; ID >= 0; ID--)
-		{
-			elem_ID = lst->free.data[ID];
 
-			//	get_free_elem_color
+		int elem_ID = lst->current_free;
+
+		while(elem_ID != 0)
+		{
 			char *color_code = "#808080"; // TD: consts with informative name
 
-			if(elem_ID == lst->free.data[current_free_ID])
+			if(elem_ID == lst->current_free)
 			{
 				color_code = "#C0C0C0";
 			}
@@ -399,6 +378,8 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 			" label = \"{ID: %d | val: %.2lf |{next: %d | prev: %d}}\" ];\n",
 				elem_ID, color_code, elem_ID, lst->node[elem_ID].data,
 					lst->node[elem_ID].next, lst->node[elem_ID].prev);
+
+			elem_ID = lst->node[elem_ID].next;
 		}
 	}
 
@@ -448,23 +429,13 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 	return result;
 }
 
-// size_t get_current_free_ID(const struct List * lst)
-// {
-// 	size_t current_free_ID = 0;
-//
-// 	if(lst->free.size != 0)
-// 	{
-// 		current_free_ID = lst->free.size - 1;
-// 	}
-//
-// 	return current_free_ID;
-// }
-
-enum Err_ID list_linearize(struct List *lst)
+error_t list_linearize(struct List *lst)
 {
-	enum Err_ID error_code = ALL_GOOD;
-	lst_elem_t *linearized_data = (lst_elem_t *)calloc(lst->capacity, sizeof(lst_elem_t));
+	error_t error_code = ALL_GOOD;
+	lst_elem_t *linearized_data = NULL;
+	SMART_CALLOC(linearized_data, lst_elem_t, lst->capacity);
 
+	// fill linearized_data w non_free_elems
 	linearized_data[0] = POISON;
 
 	int current_data_ID = lst->node[lst->head].prev;
@@ -478,14 +449,118 @@ enum Err_ID list_linearize(struct List *lst)
 
 		linearized_data[linearized_data_ID] = lst->node[current_data_ID].data;
 
-		printf("%lf[%lu]\tcurrent_data_ID: %d\n",
+		WRITE_IN_LOG("%lf[%lu]\tcurrent_data_ID: %d\n",
 			linearized_data[linearized_data_ID], linearized_data_ID, current_data_ID);
 
 	} while(current_data_ID != lst->tail);
 
+	int last_non_free_elem_ID = linearized_data_ID;
+	WRITE_IN_LOG("last_non_free_elem_ID == %d\n", last_non_free_elem_ID);
 
+	// fill linearized_data w free_elems
+	linearized_data_ID++;
+	current_data_ID = lst->current_free;
 
-	// memcpy(void *dest, const void *source, size_t count)
+	WRITE_IN_LOG("lst->current_free == %d\n", lst->current_free);
+
+	while(lst->node[current_data_ID].next != 0)
+	{
+		linearized_data[linearized_data_ID] = lst->node[current_data_ID].data;
+
+		WRITE_IN_LOG("%lf[%lu]\tcurrent_data_ID: %d\n",
+			linearized_data[linearized_data_ID], linearized_data_ID, current_data_ID);
+
+		current_data_ID = lst->node[current_data_ID].next;
+		linearized_data_ID++;
+	}
+
+	linearized_data[linearized_data_ID] = lst->node[current_data_ID].data;
+
+	WRITE_IN_LOG("%lf[%lu]\tcurrent_data_ID: %d\n",
+		linearized_data[linearized_data_ID], linearized_data_ID, current_data_ID);
+
+	// copy non_free_elems in data
+	for(size_t ID = 0; ID < last_non_free_elem_ID + 1; ID++)
+	{
+		lst->node[ID].data = linearized_data[ID];
+		lst->node[ID].next = (int)(ID + 1);
+		lst->node[ID].prev = (int)(ID - 1);
+
+	}
+
+	lst->node[last_non_free_elem_ID].next = 0;
+
+	// copy free_elems in data
+	for(size_t ID = last_non_free_elem_ID + 1; ID < lst->capacity - 1; ID++)
+	{
+		lst->node[ID].data = linearized_data[ID];
+		lst->node[ID].next = (int)(ID + 1);
+		lst->node[ID].prev = FREE_ELEM_MARKER;
+
+	}
+
+	lst->node[lst->capacity - 1].next = 0;
+
+	lst->head = 1;
+	lst->tail = last_non_free_elem_ID;
+	lst->current_free = last_non_free_elem_ID + 1;
+
+	WRITE_IN_LOG("head after linearization: %d\n", lst->head);
+	WRITE_IN_LOG("tail after linearization: %d\n", lst->tail);
+	WRITE_IN_LOG("current_free after linearization: %d\n", lst->current_free);
+
+	list_dump(lst, error_code, __func__);
 
 	return error_code;
 }
+
+// Функция для удаления элемента по индексу data_ID
+struct List_remove_result list_remove(struct List *lst, int data_ID)
+{
+	struct List_remove_result result =
+	{
+		.error_code = ALL_GOOD,
+		.removed_data = POISON, // Или другое значение по умолчанию
+	};
+
+	if (data_ID <= 0 || data_ID >= lst->capacity)
+	{
+		result.error_code = INVALID_INDEX;
+		return result;
+	}
+
+	if (lst->node[data_ID].next == 0 || !cmp_double(lst->node[data_ID].data, POISON))
+	{
+		// Попытка удаления пустого элемента или элемента с концом списка (tail)
+		result.error_code = INVALID_INDEX;
+		return result;
+	}
+
+	int prev_ID = lst->node[data_ID].prev;
+	int next_ID = lst->node[data_ID].next;
+
+	lst_elem_t removed_data = lst->node[data_ID].data;
+
+	// Обновляем связи соседних элементов
+	lst->node[prev_ID].next = next_ID;
+	lst->node[next_ID].prev = prev_ID;
+
+	// Отмечаем удаленный элемент как свободный
+	lst->node[data_ID].next = lst->current_free;
+	lst->current_free = data_ID;
+
+	result.removed_data = removed_data;
+
+	update_lists_fictitious_elem(lst);
+
+	list_dump(lst, result.error_code, __func__);
+
+	return result;
+}
+
+// error_t create_node(char *node_name, char *node_color, char *label);
+
+
+#undef SMART_CALLOC
+#undef SMART_FOPEN
+

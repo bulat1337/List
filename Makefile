@@ -18,14 +18,17 @@ FLAGS = -D _DEBUG -ggdb3 \
 
 LINK_FLAGS = -fsanitize=address,alignment,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,nonnull-attribute,null,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
 
-$(TARGET_1): $(PREF_LST_SRC)main.o $(PREF_LST_SRC)list.o
-	@ $(CC) $(LINK_FLAGS) $(PREF_LST_SRC)main.o $(PREF_LST_SRC)list.o -o $(TARGET_1) -L./lib -lstack  -I./lib
+$(TARGET_1): $(PREF_LST_OBJ)main.o $(PREF_LST_OBJ)list.o $(PREF_LST_OBJ)list_helpers.o
+	@ $(CC) $(LINK_FLAGS) $(PREF_LST_OBJ)main.o $(PREF_LST_OBJ)list.o $(PREF_LST_OBJ)list_helpers.o -o $(TARGET_1) -L./lib -lstack -I./lib
 
-$(PREF_LST_SRC)main.o: $(PREF_LST_SRC)main.cpp
-	@ $(CC) -c $(PREF_LST_SRC)main.cpp -o $(PREF_LST_SRC)main.o $(FLAGS)
+$(PREF_LST_OBJ)main.o: $(PREF_LST_SRC)main.cpp
+	@ $(CC) -c $(PREF_LST_SRC)main.cpp -o $(PREF_LST_OBJ)main.o $(FLAGS)
 
-$(PREF_LST_SRC)list.o: $(PREF_LST_SRC)list.cpp
-	@ $(CC) -c $(PREF_LST_SRC)list.cpp -o $(PREF_LST_SRC)list.o $(FLAGS)
+$(PREF_LST_OBJ)list.o: $(PREF_LST_SRC)list.cpp
+	@ $(CC) -c $(PREF_LST_SRC)list.cpp -o $(PREF_LST_OBJ)list.o $(FLAGS)
+
+$(PREF_LST_OBJ)list_helpers.o: $(PREF_LST_SRC)list_helpers.cpp
+	@ $(CC) -c $(PREF_LST_SRC)list_helpers.cpp -o $(PREF_LST_OBJ)list_helpers.o $(FLAGS)
 
 clean:
-	rm $(TARGET_1) $(PREF_LST_SRC)*.o
+	rm $(TARGET_1) $(PREF_LST_OBJ)*.o
