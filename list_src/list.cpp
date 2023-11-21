@@ -281,6 +281,10 @@ error_t list_verifier(struct List *lst)
 
 struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(struct List *lst)
 {
+	const char const *LIGHT_GREEN = "#00FA9A";
+	const char const *LIGHT_CORAL = "#F08080";
+	const char const *LIGHT_YELLOW = "#FFEC4F";
+
 	struct Generate_code_for_graphic_dump_result result =
 	{
 		.error_code = ALL_GOOD,
@@ -313,6 +317,20 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 	"\tbelow_node [label = \"Don't look at me\", width = 3, style = invis];\n"
 	"}\n", 1 + lst->capacity / 10);
 
+	struct node_charachteristics nd_description =
+	{
+		.color = "#F08080",
+		.name = "node_",
+	};
+
+	nd_description.label = (char *)calloc((node_label_str_size), sizeof(char));
+	if(nd_description.label == NULL)
+	{
+		fprintf(stderr, "Unable to allocate nd_description.label\n");
+		result.error_code = NOT_ENOUGH_MEM;
+		return result;
+	}
+
 	//	print_list_manager
 	WRITE_TO_DUMP_FILE("{rank = min;\n"
 	"\tlist_manager [shape=Mrecord, fillcolor = \"#1E90FF\","
@@ -323,17 +341,33 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 	WRITE_TO_DUMP_FILE("{rank = same;\n");
 
 	//	print_dummy
-	WRITE_TO_DUMP_FILE("\tdummy [shape = Mrecord,label = "
+
+//
+// 	nd_description.color = "#FFEC4F";
+// 	nd_description.name = "DUMMY_";							какая-то хрень если печатать так
+//
+// 	snprintf(nd_description.label, node_label_str_size,
+// 				"{DUMMY | ID: 0 | val: %.2lf | {next: %d | prev: %d}}",
+// 				lst->node[0].data, lst->node[0].next, lst->node[0].prev);
+//
+// 	create_node(0, &nd_description, result.graphic_dump_code_file_ptr);
+
+	WRITE_TO_DUMP_FILE("\tDUMMY_0 [shape = Mrecord,label = "
 	"\"{DUMMY | ID: 0 | val: %.2lf | {next: %d | prev: %d}}\"];\n",
 		lst->node[0].data, lst->node[0].next, lst->node[0].prev);
 
 	if(lst->head >= 0)
 	{
 		//	print_head
-		WRITE_TO_DUMP_FILE("\tnode_%d [shape = Mrecord, "
-		"fillcolor = \"#00FA9A\", label = \"{ID: %d | val: %.2lf |{next: %d | prev: %d}}\" ];\n",
-			lst->head, lst->head, lst->node[lst->head].data, lst->node[lst->head].next,
-				lst->node[lst->head].prev);
+		nd_description.color = "#00FA9A";
+		// nd_description.color = LIGHT_GREEN; 						!!!почему это ошибка!!!
+
+		snprintf(nd_description.label, node_label_str_size,
+				 "{ID: %d | val: %.2lf |{next: %d | prev: %d}}",
+				 lst->head, lst->node[lst->head].data,
+				 lst->node[lst->head].next, lst->node[lst->head].prev);
+
+		create_node(lst->head, &nd_description, result.graphic_dump_code_file_ptr);
 	}
 
 	if(lst->tail >= 0)
@@ -389,12 +423,12 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 
 	//	print_aligning_edges
 	WRITE_TO_DUMP_FILE(
-	"\tlist_manager -> dummy[weight = 5, style = invis];\n"
-	"\tbelow_node -> dummy[weight = 5, style = invis];\n");
+	"\tlist_manager -> DUMMY_0[weight = 5, style = invis];\n"
+	"\tbelow_node -> DUMMY_0[weight = 5, style = invis];\n");
 
 	WRITE_TO_DUMP_FILE("\n\t");
 
-	WRITE_TO_DUMP_FILE("dummy -> ");
+	WRITE_TO_DUMP_FILE("DUMMY_0 -> ");
 	for(int elem_ID = 1; elem_ID < (int)lst->capacity - 1; elem_ID++)
 	{
 		WRITE_TO_DUMP_FILE("node_%d -> ", elem_ID);
@@ -406,20 +440,8 @@ struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(stru
 
 	WRITE_TO_DUMP_FILE("\n\t");
 
-	if(lst->head >= 0)
-	{
-		//	print_logic_edges
-		for(int elem_ID = lst->head;
-				elem_ID != lst->tail; elem_ID = lst->node[elem_ID].next)
-		{
-			WRITE_TO_DUMP_FILE("node_%d -> ", elem_ID);
-		}
-	}
 
-	if(lst->tail >= 0)
-	{
-		WRITE_TO_DUMP_FILE("node_%d;\n", lst->tail);
-	}
+	connect_nodes(lst, result.graphic_dump_code_file_ptr);
 
 	WRITE_TO_DUMP_FILE("}");
 
@@ -557,8 +579,6 @@ struct List_remove_result list_remove(struct List *lst, int data_ID)
 
 	return result;
 }
-
-// error_t create_node(char *node_name, char *node_color, char *label);
 
 
 #undef SMART_CALLOC

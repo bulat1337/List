@@ -27,7 +27,7 @@ int main()
 
 	list_linearize(lst);
 
-	struct List_remove_result remove_result = list_remove(lst, 2);
+	// struct List_remove_result remove_result = list_remove(lst, 2);
 
 	list_verifier(lst);
 

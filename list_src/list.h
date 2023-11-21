@@ -50,6 +50,13 @@ struct List_remove_result
 	lst_elem_t removed_data;
 };
 
+struct node_charachteristics
+{
+	char *name;
+	char *color;
+	char *label;
+};
+
 // struct
 // {
 // 	error;
@@ -66,6 +73,7 @@ const int FREE_ELEM_MARKER = -1;
 const lst_elem_t POISON = NAN;
 const size_t LIST_REALLOC_FROM_ZERO_CAPACITY = 5;
 const size_t LIST_REALLOC_COEFF  = 2;
+const size_t node_label_str_size = 100;
 
 typedef enum Err_ID error_t;
 // DSL

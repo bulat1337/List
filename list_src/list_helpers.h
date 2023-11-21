@@ -10,6 +10,9 @@ error_t mark_list_nodes_as_free(struct List_node *node, size_t size, size_t star
 error_t list_realloc(List *lst);
 error_t update_lists_fictitious_elem(struct List *lst);
 error_t increase_list_capacity(struct List *lst);
+error_t create_node(int node_ID, struct node_charachteristics *nd_description,
+					FILE *graphic_dump_code_file_ptr);
+error_t connect_nodes(struct List *lst, FILE *graphic_dump_code_file_ptr);
 
 
 #endif

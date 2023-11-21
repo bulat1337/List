@@ -70,3 +70,32 @@ error_t increase_list_capacity(struct List *lst)
 
 	return ALL_GOOD;
 }
+
+error_t create_node(int node_ID, struct node_charachteristics *nd_description,
+					FILE *graphic_dump_code_file_ptr)
+{
+	fprintf(graphic_dump_code_file_ptr, "\t%s%d [shape = Mrecord, "
+		"fillcolor = \"%s\", label = \"%s\" ];\n",
+			nd_description->name, node_ID, nd_description->color, nd_description->label);
+
+	return ALL_GOOD;
+}
+
+error_t connect_nodes(struct List *lst, FILE *graphic_dump_code_file_ptr)
+{
+	if(lst->head >= 0)
+	{
+		for(int elem_ID = lst->head;
+				elem_ID != lst->tail; elem_ID = lst->node[elem_ID].next)
+		{
+			fprintf(graphic_dump_code_file_ptr, "node_%d -> ", elem_ID);
+		}
+	}
+
+	if(lst->tail >= 0)
+	{
+		fprintf(graphic_dump_code_file_ptr, "node_%d;\n", lst->tail);
+	}
+
+	return ALL_GOOD;
+}
