@@ -1,0 +1,7 @@
+#!/bin/bash
+rm log_file
+make clean
+make
+./lst.out
+dot -Tpng list_graphic_dump.dot -o list_graphic_dump.png -Gdpi=100
+# dot -Tpng list_graphic_dump.dot -o list_graphic_dump.png -Gdpi=100
