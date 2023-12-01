@@ -14,5 +14,4 @@ error_t create_node(int node_ID, struct node_charachteristics *nd_description,
 					FILE *graphic_dump_code_file_ptr);
 error_t connect_nodes(struct List *lst, FILE *graphic_dump_code_file_ptr);
 
-
 #endif

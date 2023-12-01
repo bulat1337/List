@@ -39,7 +39,7 @@ error_t list_realloc(List *lst)
 		return NOT_ENOUGH_MEM;
 	}
 
-	size_t new_allocated_areas_start_ID = (lst->capacity / 2) - 1; // TD: hardcode
+	size_t new_allocated_areas_start_ID = (lst->capacity / LIST_REALLOC_COEFF) - 1;
 	lst->current_free = new_allocated_areas_start_ID;
 	WRITE_IN_LOG("new_allocated_areas_start_ID == %lu\n", new_allocated_areas_start_ID);
 	mark_list_nodes_as_free(lst->node, lst->capacity, new_allocated_areas_start_ID);

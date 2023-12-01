@@ -18,20 +18,24 @@ int main()
 
 	list_add(lst, 900);
 	list_add(lst, 900);
-	list_add(lst, 900);
+
+	for(size_t ID = 0; ID < 100; ID++)
+	{
+		list_add(lst, 900);
+	}
 
 
 
 
 
-
-	list_linearize(lst);
+	// list_linearize(lst);
 
 	// struct List_remove_result remove_result = list_remove(lst, 2);
 
 	list_verifier(lst);
 
 	generate_code_for_graphic_dump(lst);
+	list_dtor(lst);
 
 	return 0;
 }

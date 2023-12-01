@@ -74,6 +74,7 @@ const lst_elem_t POISON = NAN;
 const size_t LIST_REALLOC_FROM_ZERO_CAPACITY = 5;
 const size_t LIST_REALLOC_COEFF  = 2;
 const size_t node_label_str_size = 100;
+const int LIST_ID_POISON = -666;
 
 typedef enum Err_ID error_t;
 // DSL
@@ -87,6 +88,7 @@ error_t list_verifier(struct List *lst);
 struct Generate_code_for_graphic_dump_result generate_code_for_graphic_dump(struct List *lst);
 error_t list_linearize(struct List *lst);
 struct List_remove_result list_remove(struct List *lst, int data_ID);
+error_t list_dtor(struct List *lst);
 
 
 #endif
